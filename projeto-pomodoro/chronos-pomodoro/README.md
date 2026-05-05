@@ -1,157 +1,144 @@
-# 🚀 Criando a Primeira Tarefa: Iniciando a Lógica do Pomodoro
+# 🧠 Introdução ao `useReducer`: Simplificando Estados Complexos
 
-Chegou a hora de dar o pontapé inicial na lógica da nossa aplicação criando a
-nossa primeira Tarefa (Task)!
+Nas últimas aulas, você deve ter notado que as nossas funções de iniciar e
+interromper tarefas ficaram gigantes. Toda vez que queríamos alterar o estado
+(`setState`), precisávamos nos preocupar em espalhar o estado anterior
+(`...prevState`), manter as outras propriedades intactas e fazer lógicas
+complexas de atualização de array.
 
-A partir de agora, o nosso formulário vai ser o maestro da aplicação. É ele quem
-dita quando um ciclo começa, configura os tempos e prepara o terreno.
-Prepare-se, pois teremos mais lógica e um pouquinho de matemática a partir
-daqui!
+Se precisássemos iniciar uma tarefa a partir de outro lugar da aplicação,
+teríamos que duplicar todo esse código! É para resolver exatamente esse problema
+de "estados complexos" que o React nos oferece o hook **`useReducer`**.
 
-> 💡 **Dica do Instrutor:** Anote os pontos que achar mais complexos! Vamos
-> fazer várias coisas sequenciais (iniciar ciclo, contar tempo, finalizar ciclo,
-> preparar o próximo), e entender o "porquê" de cada etapa vai te ajudar muito
-> lá na frente.
+Com o `useReducer`, o componente não precisa saber _como_ o estado é alterado.
+Ele apenas grita: **"Ei, inicie uma nova tarefa!"** (dispara uma ação). O
+Reducer, que é uma função centralizada, escuta essa ação, sabe exatamente o que
+fazer e devolve o novo estado pronto.
+
+Para você entender esse conceito sem fritar a cabeça com a complexidade do nosso
+Pomodoro, vamos dar um passo atrás e criar o Reducer mais simples do mundo: um
+contador.
 
 ---
 
-## 🧹 1. Validando e Limpando o Input
+## 🧹 1. Limpando o Terreno (O Efeito "Homens de Preto")
 
-Antes de criar uma tarefa, precisamos ter certeza de que o usuário digitou algo
-válido. Vamos usar o `useRef` da aula passada, mas adicionando verificações de
-segurança e a função `.trim()` para remover espaços em branco inúteis.
+Vamos temporariamente esconder a nossa aplicação para focar apenas no conceito.
+Abra o seu arquivo de Contexto. Comente o `useEffect` e troque o `{children}` do
+retorno por elementos de teste.
 
-**Arquivo:** `src/components/MainForm/index.tsx`
+**Arquivo:** `src/contexts/TaskContext/index.tsx`
 
 ```tsx
-function handleCreateNewTask(event: React.FormEvent<HTMLFormElement>) {
-  event.preventDefault();
+// Comente o useEffect por enquanto
+// useEffect(() => {
+//   console.log(state);
+// }, [state]);
 
-  // 1. Verificação de segurança (TypeScript): O input existe na tela?
-  if (taskNameInput.current === null) return;
-
-  // 2. Pegamos o valor e removemos espaços sobrando nas pontas (ex: "  Estudar  " vira "Estudar")
-  const taskName = taskNameInput.current.value.trim();
-
-  // 3. Validação do usuário: Ele digitou alguma coisa?
-  if (!taskName) {
-    alert('Digite o nome da tarefa'); // Substituiremos por um Toast depois!
-    return; // Interrompe a função aqui
-  }
-
-  console.log('Passou na validação! Tarefa:', taskName);
-  // ... próximo passo ...
-}
+return (
+  <TaskContext.Provider value={{ state, setState }}>
+    {/* Esconda o {children} e coloque um H1 para testarmos */}
+    <h1>Testando...</h1>
+  </TaskContext.Provider>
+);
 ```
 
-## 🏗️ 2. Montando o Objeto da Tarefa (`TaskModel`)
+Se você olhar o navegador agora, a aplicação sumiu e você só verá o
+"Testando...". Perfeito!
 
-Com o nome da tarefa em mãos, vamos construir o objeto que representa essa
-tarefa, seguindo a estrutura do nosso `TaskModel`.
+## ⚙️ 2. A Estrutura Básica do `useReducer`
 
-```tsx
-// Lembre-se de importar o modelo lá no topo do arquivo!
-import type { TaskModel } from '../../models/TaskModel';
+O `useReducer` funciona de forma muito parecida com o `useState`. Ele recebe
+dois parâmetros:
 
-// ... dentro do handleCreateNewTask ...
+1. Uma **função Reducer** (que recebe o estado atual e a ação disparada).
+2. O **estado inicial** (no nosso caso, o número `0`).
 
-const newTask: TaskModel = {
-  // Usamos o timestamp (data em milissegundos) como ID único temporário
-  id: Date.now().toString(),
-  name: taskName,
-  startDate: new Date(),
-  completeDate: null,
-  interruptDate: null,
-  duration: 1, // Fixo temporariamente (vamos pegar do state depois)
-  type: 'workTime', // Fixo temporariamente
-};
+Ele nos devolve duas coisas (assim como o `useState`):
 
-// Convertendo a duração (minutos) para segundos totais
-const secondsRemaining = newTask.duration * 60;
-```
+1. A variável com o valor do **estado** (chamaremos de `numero`).
+2. Uma função para **disparar ações**, que convencionalmente chamamos de
+   `dispatch`.
 
-## 💾 3. Salvando a Tarefa no Estado Global
-
-Agora vem a parte crucial: injetar essa nova tarefa dentro da nossa "nuvem" (o
-Contexto). Para isso, vamos puxar o `setState` do nosso Hook e atualizar os
-valores.
-
-**Arquivo:** `src/components/MainForm/index.tsx` (Continuação da função)
+Vamos importar o `useReducer` do React e criar a nossa estrutura:
 
 ```tsx
-import { useTaskContext } from '../../contexts/useTaskContext'; // Não esqueça o import!
-
-export function MainForm() {
-  const { setState } = useTaskContext(); // Puxando a função do contexto
-  // ... useRef ...
-
-  function handleCreateNewTask(event: React.FormEvent<HTMLFormElement>) {
-    // ... validação ...
-    // ... criação da newTask e secondsRemaining ...
-
-    setState(prevState => {
-      return {
-        ...prevState,
-        // Garantindo que não vamos sobrescrever as configurações
-        config: { ...prevState.config },
-
-        // A tarefa recém-criada se torna a tarefa ativa
-        activeTask: newTask,
-
-        // Itens que vamos configurar nas próximas aulas (marcados como TODO/Conferir)
-        currentCycle: 1,
-        secondsRemaining,
-        formattedSecondsRemaining: '00:00',
-
-        // ATENÇÃO AQUI: Como adicionar um item em um Array no React!
-        // Criamos um NOVO array, espalhamos as tarefas antigas (...), e adicionamos a nova no final.
-        tasks: [...prevState.tasks, newTask],
-      };
-    });
-  }
-  // ...
-```
-
-## 👁️ 4. Monitorando o Estado com `useEffect` (Opcional/Debug)
-
-Para provar que tudo isso está funcionando, vamos colocar um "espião" lá no
-nosso Provider. Queremos que, toda vez que o estado mudar, ele imprima o estado
-atualizado no console. Para isso, usamos o Hook `useEffect`!
-
-**Arquivo:** `src/contexts/TaskContextProvider.tsx`
-
-```tsx
-import { useEffect, useState } from 'react'; // Importe o useEffect
-// ... imports ...
+import { useReducer, useState } from 'react';
+// ... outras importações ...
 
 export function TaskContextProvider({ children }: TaskContextProviderProps) {
   const [state, setState] = useState(initialTaskState);
 
-  // O "Espião": Executa o console.log toda vez que a variável 'state' for alterada
-  useEffect(() => {
-    console.log('ESTADO ATUALIZADO:', state);
-  }, [state]);
+  // 1. Criando o nosso reducer simples
+  const [numero, dispatch] = useReducer((state, action) => {
 
-  return (
-    <TaskContext.Provider value={{ state, setState }}>
-      {children}
-    </TaskContext.Provider>
-  );
-}
+    // Regra de Ouro: O reducer SEMPRE precisa retornar um estado (seja ele novo ou o atual)
+    return state;
+
+  }, 0);
+
+// ...
 ```
 
-## ✅ Testando na Prática
+## 🎯 3. Disparando Ações e o `switch/case`
 
-1. Salve tudo e abra o seu navegador.
-2. Abra o Console do desenvolvedor (`F12`).
-3. Digite o nome de uma tarefa (ex: "Estudar React") e clique no Play.
-4. Observe o console! Você verá um objeto gigante impresso.
-5. Abra esse objeto e confira:
+Como alteramos esse número? Usamos a função `dispatch` passando o nome da ação
+que queremos que aconteça. Normalmente, passamos strings em letras maiúsculas
+(como `'INCREMENT'`).
 
-- O array `tasks` agora tem 1 item.
-- O `activeTask` contém o objeto da tarefa que você acabou de criar.
-- O `secondsRemaining` está com o valor de `60` (1 minuto).
+Dentro da função reducer, usamos um `switch` para checar qual ação foi disparada
+(o parâmetro `action`) e, com base nisso, retornamos a matemática correta.
 
-**Conseguimos!** Injetamos dados reais no nosso estado global. Na próxima aula,
-vamos começar a resolver aqueles itens marcados como "Conferir" (Ciclos e
-Formatação de Tempo).
+Atualize o seu código para incluir a lógica do `switch` e os botões na tela:
+
+```tsx
+const [numero, dispatch] = useReducer((state, action) => {
+  console.log('Estado atual:', state, 'Ação disparada:', action);
+
+  // Avalia qual ação foi disparada
+  switch (action) {
+    case 'INCREMENT':
+      return state + 1; // Se for incrementar, devolve o estado + 1
+    case 'DECREMENT':
+      return state - 1; // Se for decrementar, devolve o estado - 1
+    case 'INITIAL_STATE':
+      return 0; // Se for zerar, devolve 0 diretamente
+  }
+
+  // Fallback: se dispararem uma ação que não existe, devolve o estado como estava.
+  return state;
+}, 0);
+
+return (
+  <TaskContext.Provider value={{ state, setState }}>
+    <h1>O número é: {numero}</h1>
+
+    {/* Botões que disparam (dispatch) as ações para o nosso reducer */}
+    <button onClick={() => dispatch('INCREMENT')}>Incrementar</button>
+    <button onClick={() => dispatch('DECREMENT')}>Decrementar</button>
+    <button onClick={() => dispatch('INITIAL_STATE')}>ZERAR</button>
+  </TaskContext.Provider>
+);
+```
+
+## ✅ 4. Testando o Comportamento
+
+Vá para o navegador, abra o seu `Console (F12)` e clique nos botões!
+
+- Ao clicar em **Incrementar**, o `dispatch('INCREMENT')` manda a mensagem para
+  o Reducer. O Reducer vê o `case 'INCREMENT'`, soma 1 ao estado e atualiza a
+  tela.
+- Ao clicar em **ZERAR**, o `dispatch` manda a mensagem `'INITIAL_STATE'`. O
+  Reducer entende a regra e altera o estado para 0, não importando o quão alto o
+  número estava antes.
+
+Toda a lógica matemática ficou presa dentro do Reducer. Os botões não fazem
+ideia de como a conta é feita, eles apenas dão a ordem!
+
+**🔮 Próximos Passos** Isso foi muito fácil porque lidamos com um simples número
+e uma string de ação. Mas no mundo real, nosso estado é um objeto gigante (com
+arrays e tarefas) e nossas ações precisam carregar dados (ex: os dados da tarefa
+digitada no input).
+
+Na próxima aula, vamos evoluir esse conceito para trabalhar com **Objetos e
+Payloads**, deixando tudo pronto para refatorar o nosso Pomodoro de verdade!

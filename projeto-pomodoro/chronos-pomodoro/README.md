@@ -1,144 +1,95 @@
-# 🧠 Introdução ao `useReducer`: Simplificando Estados Complexos
+# Tarefa: identidade visual (favicon, título, PWA) e áudios para alerta de fim de ciclo
 
-Nas últimas aulas, você deve ter notado que as nossas funções de iniciar e
-interromper tarefas ficaram gigantes. Toda vez que queríamos alterar o estado
-(`setState`), precisávamos nos preocupar em espalhar o estado anterior
-(`...prevState`), manter as outras propriedades intactas e fazer lógicas
-complexas de atualização de array.
+## Objetivo
 
-Se precisássemos iniciar uma tarefa a partir de outro lugar da aplicação,
-teríamos que duplicar todo esse código! É para resolver exatamente esse problema
-de "estados complexos" que o React nos oferece o hook **`useReducer`**.
+1. **Pasta `public/`** — deixar o app com **título** adequado, **favicon** nos navegadores e **Web App Manifest** para o Chrome/Edge oferecerem **“Instalar aplicativo”** (atalho em janela própria, sem precisar “instalar” um `.exe`).
+2. **Pasta `src/assets/audios/`** — incluir arquivos de som que serão usados **na próxima etapa** quando a tarefa for **completada** (contador chega a zero e disparamos `COMPLETE_TASK`): tocar um **alerta sonoro** para o usuário perceber o fim do Pomodoro.
 
-Com o `useReducer`, o componente não precisa saber _como_ o estado é alterado.
-Ele apenas grita: **"Ei, inicie uma nova tarefa!"** (dispara uma ação). O
-Reducer, que é uma função centralizada, escuta essa ação, sabe exatamente o que
-fazer e devolve o novo estado pronto.
+Nada disso exige importar imagem no React: favicons e manifest são referenciados **direto no `index.html`** com URLs que começam em `/` (raiz do site servida pelo Vite).
 
-Para você entender esse conceito sem fritar a cabeça com a complexidade do nosso
-Pomodoro, vamos dar um passo atrás e criar o Reducer mais simples do mundo: um
-contador.
+## Onde colocar os arquivos no projeto
 
----
+| Tipo | Pasta no repositório | Uso |
+|------|----------------------|-----|
+| Favicon, ícones PWA, manifest | `projeto-pomodoro/chronos-pomodoro/public/images/` | A aula organiza em subpasta **`public/images/favicon/`** (todos os PNG/SVG/ICO + `site.webmanifest` juntos). O Vite expõe `public/` na **raiz** do endereço: arquivo em `public/images/favicon/favicon.ico` vira URL **`/images/favicon/favicon.ico`**. |
+| Sons de notificação | `projeto-pomodoro/chronos-pomodoro/src/assets/audios/` | Importados no código com `import ... from '@/assets/audios/arquivo.mp3'` (ou caminho relativo), para o bundler incluir o arquivo no build. |
 
-## 🧹 1. Limpando o Terreno (O Efeito "Homens de Preto")
+**Importante:** os caminhos em `index.html` e dentro de `site.webmanifest` (campo `icons[].src`) devem ser **idênticos** à estrutura real de pastas sob `public/`. Se os arquivos estiverem em `public/images/` sem subpasta `favicon`, use `/images/nome-do-arquivo.png`; se estiverem em `public/images/favicon/`, use `/images/favicon/nome-do-arquivo.png`.
 
-Vamos temporariamente esconder a nossa aplicação para focar apenas no conceito.
-Abra o seu arquivo de Contexto. Comente o `useEffect` e troque o `{children}` do
-retorno por elementos de teste.
+## Passo 1 — Gerar favicon e manifest
 
-**Arquivo:** `src/contexts/TaskContext/index.tsx`
+1. Prepare uma imagem quadrada (ex.: ícone baseado em **Lucide** ou logo simples).
+2. Use um gerador online — o da aula é o **[RealFaviconGenerator](https://realfavicongenerator.net/)** (“The real favicon generator…”): envie a imagem e baixe o pacote com **`.ico`**, **PNG** em vários tamanhos, **SVG** (se disponível), **apple-touch-icon** e **`site.webmanifest`**.
+3. Alternativa gratuita: **[favicon.io](https://favicon.io/)** (texto, emoji ou upload de imagem → pacote para download).
 
-```tsx
-// Comente o useEffect por enquanto
-// useEffect(() => {
-//   console.log(state);
-// }, [state]);
+Copie o conteúdo gerado para:
 
-return (
-  <TaskContext.Provider value={{ state, setState }}>
-    {/* Esconda o {children} e coloque um H1 para testarmos */}
-    <h1>Testando...</h1>
-  </TaskContext.Provider>
-);
+- `public/images/favicon/` (recomendado na aula), **ou**
+- `public/images/` mantendo nomes claros (`favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `web-app-manifest-192x192.png`, etc.).
+
+## Passo 2 — Ajustar `index.html`
+
+Arquivo: `projeto-pomodoro/chronos-pomodoro/index.html`.
+
+- **`lang`:** manter `pt-BR` se o app for em português.
+- **`<title>`:** trocar para o nome do produto, ex.: **`Chronos Pomodoro`**.
+- **Links de ícone:** substituir o favicon padrão do Vite pelas tags que o gerador forneceu, **ajustando apenas os `href`** para a sua pasta (exemplo com subpasta `favicon`):
+
+```html
+<link rel="icon" type="image/png" href="/images/favicon/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="/images/favicon/favicon.svg" />
+<link rel="icon" type="image/png" href="/images/favicon/favicon.png" />
+<link rel="shortcut icon" href="/images/favicon/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png" />
+<link rel="manifest" href="/images/favicon/site.webmanifest" />
 ```
 
-Se você olhar o navegador agora, a aplicação sumiu e você só verá o
-"Testando...". Perfeito!
+## Passo 3 — `site.webmanifest` (PWA)
 
-## ⚙️ 2. A Estrutura Básica do `useReducer`
+O arquivo costuma vir do gerador com campos como:
 
-O `useReducer` funciona de forma muito parecida com o `useState`. Ele recebe
-dois parâmetros:
+- `name` / `short_name` — nome longo e curto do app.
+- `lang` — ex.: `pt-BR`.
+- `icons` — lista com `src`, `sizes`, `type`, às vezes `purpose: "maskable"`.
+- `theme_color` / `background_color` — alinhados ao tema (ex.: cinza/verde do Chronos).
+- `display` — ex.: `standalone` (janela “limpa”, sem parecer aba de navegador).
+- `orientation`, `start_url`, `scope`, `description`, `id`.
 
-1. Uma **função Reducer** (que recebe o estado atual e a ação disparada).
-2. O **estado inicial** (no nosso caso, o número `0`).
+Todos os **`src` dos ícones** no JSON devem ser URLs absolutas a partir da raiz, no mesmo padrão do `index.html`, por exemplo:
 
-Ele nos devolve duas coisas (assim como o `useState`):
-
-1. A variável com o valor do **estado** (chamaremos de `numero`).
-2. Uma função para **disparar ações**, que convencionalmente chamamos de
-   `dispatch`.
-
-Vamos importar o `useReducer` do React e criar a nossa estrutura:
-
-```tsx
-import { useReducer, useState } from 'react';
-// ... outras importações ...
-
-export function TaskContextProvider({ children }: TaskContextProviderProps) {
-  const [state, setState] = useState(initialTaskState);
-
-  // 1. Criando o nosso reducer simples
-  const [numero, dispatch] = useReducer((state, action) => {
-
-    // Regra de Ouro: O reducer SEMPRE precisa retornar um estado (seja ele novo ou o atual)
-    return state;
-
-  }, 0);
-
-// ...
+```json
+"src": "/images/favicon/web-app-manifest-192x192.png"
 ```
 
-## 🎯 3. Disparando Ações e o `switch/case`
+Revise também `display_override` se o gerador incluir opções que você não quiser (a aula comenta preferência por janela simples).
 
-Como alteramos esse número? Usamos a função `dispatch` passando o nome da ação
-que queremos que aconteça. Normalmente, passamos strings em letras maiúsculas
-(como `'INCREMENT'`).
+## Passo 4 — Áudios em `src/assets/audios/`
 
-Dentro da função reducer, usamos um `switch` para checar qual ação foi disparada
-(o parâmetro `action`) e, com base nisso, retornamos a matemática correta.
+Coloque um ou mais arquivos **`.mp3`** (ou `.ogg`) nesta pasta. No projeto de referência existem, por exemplo:
 
-Atualize o seu código para incluir a lógica do `switch` e os botões na tela:
+- `gravitational_beep.mp3` — som citado na aula (inspiração em ondas gravitacionais / “bip” discreto).
+- Outras opções na mesma pasta para experimentar: `beep.mp3`, `tic_tac_planeta_miller.mp3`, etc.
 
-```tsx
-const [numero, dispatch] = useReducer((state, action) => {
-  console.log('Estado atual:', state, 'Ação disparada:', action);
+**Onde baixar sons gratuitos (verifique sempre a licença):**
 
-  // Avalia qual ação foi disparada
-  switch (action) {
-    case 'INCREMENT':
-      return state + 1; // Se for incrementar, devolve o estado + 1
-    case 'DECREMENT':
-      return state - 1; // Se for decrementar, devolve o estado - 1
-    case 'INITIAL_STATE':
-      return 0; // Se for zerar, devolve 0 diretamente
-  }
+- **[Freesound](https://freesound.org/)** — comunidade com filtros por licença (muitos CC0 / CC BY).
+- **[Mixkit](https://mixkit.co/free-sound-effects/)** — efeitos sonoros gratuitos para uso em projetos.
+- **[Pixabay](https://pixabay.com/sound-effects/)** — efeitos e músicas com licença própria do site.
+- **[Openverse](https://openverse.org/)** — busca agregada de mídia CC (inclui áudio).
 
-  // Fallback: se dispararem uma ação que não existe, devolve o estado como estava.
-  return state;
-}, 0);
+Para o **“gravitational beep”** da narrativa da aula, muitas fontes citam divulgações da **LIGO/Virgo** (ondas gravitacionais convertidas em áudio) como material de divulgação científica — use cópias oficiais ou equivalentes com licença clara.
 
-return (
-  <TaskContext.Provider value={{ state, setState }}>
-    <h1>O número é: {numero}</h1>
+Nesta tarefa **basta** ter o arquivo no disco; **tocar** o som ao completar a task será implementado na próxima instrução (ex.: `Audio` ou `new Audio(url)` no fluxo do `COMPLETE_TASK` / Provider).
 
-    {/* Botões que disparam (dispatch) as ações para o nosso reducer */}
-    <button onClick={() => dispatch('INCREMENT')}>Incrementar</button>
-    <button onClick={() => dispatch('DECREMENT')}>Decrementar</button>
-    <button onClick={() => dispatch('INITIAL_STATE')}>ZERAR</button>
-  </TaskContext.Provider>
-);
-```
+## Checklist
 
-## ✅ 4. Testando o Comportamento
+- [ ] Arquivos de favicon + `site.webmanifest` copiados para `public/images/` ou `public/images/favicon/`.
+- [ ] `index.html` com `<title>Chronos Pomodoro</title>` (ou nome final do app) e `<link>`s coerentes com os caminhos reais.
+- [ ] `site.webmanifest` com `icons[].src` apontando para arquivos que existem em `public/`.
+- [ ] Pelo menos um `.mp3` em `src/assets/audios/` para o alerta de fim de ciclo.
+- [ ] Teste: abrir o app, ver ícone na aba; no Chrome, ver opção de instalar / atalho (quando os critérios de PWA forem atendidos).
 
-Vá para o navegador, abra o seu `Console (F12)` e clique nos botões!
+## Referência rápida de pastas no repositório
 
-- Ao clicar em **Incrementar**, o `dispatch('INCREMENT')` manda a mensagem para
-  o Reducer. O Reducer vê o `case 'INCREMENT'`, soma 1 ao estado e atualiza a
-  tela.
-- Ao clicar em **ZERAR**, o `dispatch` manda a mensagem `'INITIAL_STATE'`. O
-  Reducer entende a regra e altera o estado para 0, não importando o quão alto o
-  número estava antes.
-
-Toda a lógica matemática ficou presa dentro do Reducer. Os botões não fazem
-ideia de como a conta é feita, eles apenas dão a ordem!
-
-**🔮 Próximos Passos** Isso foi muito fácil porque lidamos com um simples número
-e uma string de ação. Mas no mundo real, nosso estado é um objeto gigante (com
-arrays e tarefas) e nossas ações precisam carregar dados (ex: os dados da tarefa
-digitada no input).
-
-Na próxima aula, vamos evoluir esse conceito para trabalhar com **Objetos e
-Payloads**, deixando tudo pronto para refatorar o nosso Pomodoro de verdade!
+- `projeto-pomodoro/chronos-pomodoro/public/images/` — assets estáticos servidos em `/images/...`
+- `projeto-pomodoro/chronos-pomodoro/src/assets/audios/` — áudios importados pelo código React/Vite

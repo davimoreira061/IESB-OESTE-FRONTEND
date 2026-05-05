@@ -1,102 +1,157 @@
-# 📊 Modelando o Estado Global da Aplicação
+# 🚀 Criando a Primeira Tarefa: Iniciando a Lógica do Pomodoro
 
-Antes de sairmos criando múltiplos `useState` espalhados pelos componentes,
-precisamos dar um passo atrás e planejar: **como os dados da nossa aplicação vão
-se comportar?** Nossa aplicação Chronos Pomodoro possui um timer, um histórico
-de tarefas, configurações de tempo e controle de ciclos. Como todos esses dados
-precisam "conversar" entre si (o timer precisa saber a configuração de tempo, o
-histórico precisa saber quando o timer acaba), vamos centralizar tudo em um
-**Estado Global**.
+Chegou a hora de dar o pontapé inicial na lógica da nossa aplicação criando a
+nossa primeira Tarefa (Task)!
 
-Nesta aula, vamos criar as tipagens (Models) que definirão o formato exato desse
-estado.
+A partir de agora, o nosso formulário vai ser o maestro da aplicação. É ele quem
+dita quando um ciclo começa, configura os tempos e prepara o terreno.
+Prepare-se, pois teremos mais lógica e um pouquinho de matemática a partir
+daqui!
+
+> 💡 **Dica do Instrutor:** Anote os pontos que achar mais complexos! Vamos
+> fazer várias coisas sequenciais (iniciar ciclo, contar tempo, finalizar ciclo,
+> preparar o próximo), e entender o "porquê" de cada etapa vai te ajudar muito
+> lá na frente.
 
 ---
 
-## 🏗️ 1. O Modelo da Tarefa (`TaskModel`)
+## 🧹 1. Validando e Limpando o Input
 
-Primeiro, vamos definir como é o formato de uma única tarefa dentro do nosso
-histórico. Crie uma pasta `models` dentro de `src` e adicione o arquivo abaixo.
+Antes de criar uma tarefa, precisamos ter certeza de que o usuário digitou algo
+válido. Vamos usar o `useRef` da aula passada, mas adicionando verificações de
+segurança e a função `.trim()` para remover espaços em branco inúteis.
 
-Optamos por usar `type` em vez de `interface` ou `class` pois nossos modelos não
-terão lógica embutida, serão apenas a representação visual dos dados.
-
-**Arquivo:** `src/models/TaskModel.ts`
-
-```typescript
-import type { TaskStateModel } from './TaskStateModel';
-
-export type TaskModel = {
-  id: string; // Identificador único da tarefa
-  name: string; // Nome digitado no input
-  duration: number; // Duração em minutos
-  startDate: number; // Timestamp de quando começou (usamos number para facilitar o localStorage)
-  completeDate: number | null; // quando o timer chega ao final
-  interruptDate: number | null; // quando a task for interrompida
-  type: keyof TaskStateModel['config'];
-};
-```
-
-💡 **Por que usar `number` para as datas?** Ao invés de usar o objeto Date
-nativo do JavaScript, vamos salvar as datas usando `Date.now()`, que retorna um
-número (timestamp). Isso facilita imensamente na hora de salvar e recuperar do
-`localStorage`, pois números não perdem formatação ao serem transformados em
-JSON.
-
-## 🌍 2. O Modelo do Estado Global (`TaskStateModel`)
-
-Agora, vamos definir o "Coração" da nossa aplicação: o objeto que vai guardar
-absolutamente tudo o que está acontecendo no momento.
-
-**Arquivo:** `src/models/TaskStateModel.ts`
+**Arquivo:** `src/components/MainForm/index.tsx`
 
 ```tsx
-import type { TaskModel } from './TaskModel';
+function handleCreateNewTask(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
 
-export type TaskStateModel = {
-  // 1. O Histórico: Um array contendo todas as tarefas já feitas ou em andamento
-  tasks: TaskModel[];
+  // 1. Verificação de segurança (TypeScript): O input existe na tela?
+  if (taskNameInput.current === null) return;
 
-  // 2. Controle do Timer
-  secondsRemaining: number; // Quantos segundos faltam no cronômetro atual
-  formattedSecondsRemaining: string; // O texto pronto para a tela (ex: "25:00")
-  activeTask: TaskModel | null; // Qual tarefa está rodando AGORA (se houver)
+  // 2. Pegamos o valor e removemos espaços sobrando nas pontas (ex: "  Estudar  " vira "Estudar")
+  const taskName = taskNameInput.current.value.trim();
 
-  // 3. Controle do Ciclo Pomodoro
-  currentCycle: number; // Vai de 1 a 8 (controla as bolinhas coloridas)
+  // 3. Validação do usuário: Ele digitou alguma coisa?
+  if (!taskName) {
+    alert('Digite o nome da tarefa'); // Substituiremos por um Toast depois!
+    return; // Interrompe a função aqui
+  }
 
-  // 4. Configurações do Usuário
-  config: {
-    workTime: number; // Tempo de foco (ex: 25)
-    shortBreakTime: number; // Descanso curto (ex: 5)
-    longBreakTime: number; // Descanso longo (ex: 15)
-  };
-};
+  console.log('Passou na validação! Tarefa:', taskName);
+  // ... próximo passo ...
+}
 ```
 
-## 🧠 3. Entendendo o `keyof` (TypeScript Avançado)
+## 🏗️ 2. Montando o Objeto da Tarefa (`TaskModel`)
 
-No arquivo `TaskModel.ts`, nós definimos a propriedade `type` da seguinte forma:
+Com o nome da tarefa em mãos, vamos construir o objeto que representa essa
+tarefa, seguindo a estrutura do nosso `TaskModel`.
 
 ```tsx
-type: keyof TaskStateModel['config'];
+// Lembre-se de importar o modelo lá no topo do arquivo!
+import type { TaskModel } from '../../models/TaskModel';
+
+// ... dentro do handleCreateNewTask ...
+
+const newTask: TaskModel = {
+  // Usamos o timestamp (data em milissegundos) como ID único temporário
+  id: Date.now().toString(),
+  name: taskName,
+  startDate: new Date(),
+  completeDate: null,
+  interruptDate: null,
+  duration: 1, // Fixo temporariamente (vamos pegar do state depois)
+  type: 'workTime', // Fixo temporariamente
+};
+
+// Convertendo a duração (minutos) para segundos totais
+const secondsRemaining = newTask.duration * 60;
 ```
 
-O que isso faz? Nós precisamos saber se a tarefa atual é de trabalho
-(`workTime`), descanso curto (`shortBreakTime`) ou descanso longo
-(`longBreakTime`). Repare que esses são exatamente os mesmos nomes das chaves do
-objeto config que acabamos de criar no TaskStateModel.
+## 💾 3. Salvando a Tarefa no Estado Global
 
-Ao usar o `keyof`, estamos dizendo ao TypeScript: "_O `type` da tarefa só pode
-ser uma string que seja idêntica ao nome de uma das chaves do `config`_".
+Agora vem a parte crucial: injetar essa nova tarefa dentro da nossa "nuvem" (o
+Contexto). Para isso, vamos puxar o `setState` do nosso Hook e atualizar os
+valores.
 
-Se amanhã adicionarmos uma nova configuração chamada `extraTime` dentro de
-config, o TypeScript automaticamente aceitará `extraTime` como um tipo de tarefa
-válido, sem precisarmos alterar dois arquivos diferentes. Isso evita repetição
-de código (o famoso princípio DRY - Don't Repeat Yourself)!
+**Arquivo:** `src/components/MainForm/index.tsx` (Continuação da função)
 
-## 🎯 Próximos Passos
+```tsx
+import { useTaskContext } from '../../contexts/useTaskContext'; // Não esqueça o import!
 
-Agora que temos o "molde" perfeito de como nossos dados devem se comportar,
-estamos prontos para criar o Estado real da aplicação usando o `useState` e,
-futuramente, a Context API.
+export function MainForm() {
+  const { setState } = useTaskContext(); // Puxando a função do contexto
+  // ... useRef ...
+
+  function handleCreateNewTask(event: React.FormEvent<HTMLFormElement>) {
+    // ... validação ...
+    // ... criação da newTask e secondsRemaining ...
+
+    setState(prevState => {
+      return {
+        ...prevState,
+        // Garantindo que não vamos sobrescrever as configurações
+        config: { ...prevState.config },
+
+        // A tarefa recém-criada se torna a tarefa ativa
+        activeTask: newTask,
+
+        // Itens que vamos configurar nas próximas aulas (marcados como TODO/Conferir)
+        currentCycle: 1,
+        secondsRemaining,
+        formattedSecondsRemaining: '00:00',
+
+        // ATENÇÃO AQUI: Como adicionar um item em um Array no React!
+        // Criamos um NOVO array, espalhamos as tarefas antigas (...), e adicionamos a nova no final.
+        tasks: [...prevState.tasks, newTask],
+      };
+    });
+  }
+  // ...
+```
+
+## 👁️ 4. Monitorando o Estado com `useEffect` (Opcional/Debug)
+
+Para provar que tudo isso está funcionando, vamos colocar um "espião" lá no
+nosso Provider. Queremos que, toda vez que o estado mudar, ele imprima o estado
+atualizado no console. Para isso, usamos o Hook `useEffect`!
+
+**Arquivo:** `src/contexts/TaskContextProvider.tsx`
+
+```tsx
+import { useEffect, useState } from 'react'; // Importe o useEffect
+// ... imports ...
+
+export function TaskContextProvider({ children }: TaskContextProviderProps) {
+  const [state, setState] = useState(initialTaskState);
+
+  // O "Espião": Executa o console.log toda vez que a variável 'state' for alterada
+  useEffect(() => {
+    console.log('ESTADO ATUALIZADO:', state);
+  }, [state]);
+
+  return (
+    <TaskContext.Provider value={{ state, setState }}>
+      {children}
+    </TaskContext.Provider>
+  );
+}
+```
+
+## ✅ Testando na Prática
+
+1. Salve tudo e abra o seu navegador.
+2. Abra o Console do desenvolvedor (`F12`).
+3. Digite o nome de uma tarefa (ex: "Estudar React") e clique no Play.
+4. Observe o console! Você verá um objeto gigante impresso.
+5. Abra esse objeto e confira:
+
+- O array `tasks` agora tem 1 item.
+- O `activeTask` contém o objeto da tarefa que você acabou de criar.
+- O `secondsRemaining` está com o valor de `60` (1 minuto).
+
+**Conseguimos!** Injetamos dados reais no nosso estado global. Na próxima aula,
+vamos começar a resolver aqueles itens marcados como "Conferir" (Ciclos e
+Formatação de Tempo).

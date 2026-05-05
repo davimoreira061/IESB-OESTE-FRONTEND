@@ -1,95 +1,71 @@
-# Tarefa: identidade visual (favicon, título, PWA) e áudios para alerta de fim de ciclo
+## Prática — Formatação de datas com `date-fns`
 
-## Objetivo
+### Objetivo
 
-1. **Pasta `public/`** — deixar o app com **título** adequado, **favicon** nos navegadores e **Web App Manifest** para o Chrome/Edge oferecerem **“Instalar aplicativo”** (atalho em janela própria, sem precisar “instalar” um `.exe`).
-2. **Pasta `src/assets/audios/`** — incluir arquivos de som que serão usados **na próxima etapa** quando a tarefa for **completada** (contador chega a zero e disparamos `COMPLETE_TASK`): tocar um **alerta sonoro** para o usuário perceber o fim do Pomodoro.
+Exibir na coluna **Data** da página **History** uma string legível (dia/mês/ano e hora:minuto) a partir do **timestamp** numérico salvo em cada tarefa (`task.startDate`), em vez de mostrar o número bruto ou um formato difícil de ler.
 
-Nada disso exige importar imagem no React: favicons e manifest são referenciados **direto no `index.html`** com URLs que começam em `/` (raiz do site servida pelo Vite).
+### Por que `date-fns`
 
-## Onde colocar os arquivos no projeto
+Dá para formatar com JavaScript puro (`Date`, `toLocaleString`, etc.), mas a biblioteca **[date-fns](https://date-fns.org/)** é leve, focada em funções puras e muito usada em produção para formatar datas, somar/subtrair intervalos e outras operações. Aqui usamos só **`format`**.
 
-| Tipo | Pasta no repositório | Uso |
-|------|----------------------|-----|
-| Favicon, ícones PWA, manifest | `projeto-pomodoro/chronos-pomodoro/public/images/` | A aula organiza em subpasta **`public/images/favicon/`** (todos os PNG/SVG/ICO + `site.webmanifest` juntos). O Vite expõe `public/` na **raiz** do endereço: arquivo em `public/images/favicon/favicon.ico` vira URL **`/images/favicon/favicon.ico`**. |
-| Sons de notificação | `projeto-pomodoro/chronos-pomodoro/src/assets/audios/` | Importados no código com `import ... from '@/assets/audios/arquivo.mp3'` (ou caminho relativo), para o bundler incluir o arquivo no build. |
+### 1. Instalar a dependência
 
-**Importante:** os caminhos em `index.html` e dentro de `site.webmanifest` (campo `icons[].src`) devem ser **idênticos** à estrutura real de pastas sob `public/`. Se os arquivos estiverem em `public/images/` sem subpasta `favicon`, use `/images/nome-do-arquivo.png`; se estiverem em `public/images/favicon/`, use `/images/favicon/nome-do-arquivo.png`.
+Instale como dependência de **produção** (não `dev`):
 
-## Passo 1 — Gerar favicon e manifest
-
-1. Prepare uma imagem quadrada (ex.: ícone baseado em **Lucide** ou logo simples).
-2. Use um gerador online — o da aula é o **[RealFaviconGenerator](https://realfavicongenerator.net/)** (“The real favicon generator…”): envie a imagem e baixe o pacote com **`.ico`**, **PNG** em vários tamanhos, **SVG** (se disponível), **apple-touch-icon** e **`site.webmanifest`**.
-3. Alternativa gratuita: **[favicon.io](https://favicon.io/)** (texto, emoji ou upload de imagem → pacote para download).
-
-Copie o conteúdo gerado para:
-
-- `public/images/favicon/` (recomendado na aula), **ou**
-- `public/images/` mantendo nomes claros (`favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `web-app-manifest-192x192.png`, etc.).
-
-## Passo 2 — Ajustar `index.html`
-
-Arquivo: `projeto-pomodoro/chronos-pomodoro/index.html`.
-
-- **`lang`:** manter `pt-BR` se o app for em português.
-- **`<title>`:** trocar para o nome do produto, ex.: **`Chronos Pomodoro`**.
-- **Links de ícone:** substituir o favicon padrão do Vite pelas tags que o gerador forneceu, **ajustando apenas os `href`** para a sua pasta (exemplo com subpasta `favicon`):
-
-```html
-<link rel="icon" type="image/png" href="/images/favicon/favicon-96x96.png" sizes="96x96" />
-<link rel="icon" type="image/svg+xml" href="/images/favicon/favicon.svg" />
-<link rel="icon" type="image/png" href="/images/favicon/favicon.png" />
-<link rel="shortcut icon" href="/images/favicon/favicon.ico" />
-<link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png" />
-<link rel="manifest" href="/images/favicon/site.webmanifest" />
+```bash
+npm install date-fns
 ```
 
-## Passo 3 — `site.webmanifest` (PWA)
+No `package.json`, deve aparecer algo como `"date-fns": "^4.x.x"` em `dependencies`.
 
-O arquivo costuma vir do gerador com campos como:
+### 2. Utilitário `formatDate`
 
-- `name` / `short_name` — nome longo e curto do app.
-- `lang` — ex.: `pt-BR`.
-- `icons` — lista com `src`, `sizes`, `type`, às vezes `purpose: "maskable"`.
-- `theme_color` / `background_color` — alinhados ao tema (ex.: cinza/verde do Chronos).
-- `display` — ex.: `standalone` (janela “limpa”, sem parecer aba de navegador).
-- `orientation`, `start_url`, `scope`, `description`, `id`.
+Crie o arquivo `src/utils/formatDate.ts` com uma função que:
 
-Todos os **`src` dos ícones** no JSON devem ser URLs absolutas a partir da raiz, no mesmo padrão do `index.html`, por exemplo:
+1. Recebe um **`number`**: o timestamp em milissegundos (como o armazenado em `task.startDate`).
+2. Converte para `Date` com `new Date(timestamp)`.
+3. Retorna uma string formatada com `format` importado de `date-fns`.
 
-```json
-"src": "/images/favicon/web-app-manifest-192x192.png"
+**Padrão de formatação usado no projeto:** `dd/MM/yyyy HH:mm`
+
+- `dd` — dia com dois dígitos  
+- `MM` — **mês** (M maiúsculo no padrão do `date-fns`)  
+- `yyyy` — ano com quatro dígitos  
+- `HH` — hora em 24h  
+- `mm` — **minutos** (m minúsculo)
+
+Cuidado na documentação do `date-fns`: **M maiúsculo = mês**, **m minúsculo = minuto**. Confira os tokens em [Format · date-fns](https://date-fns.org/docs/format).
+
+Código de referência (alinhado ao repositório atual):
+
+```ts
+import { format } from 'date-fns';
+
+export function formatDate(timestamp: number) {
+  const date = new Date(timestamp);
+  return format(date, 'dd/MM/yyyy HH:mm');
+}
 ```
 
-Revise também `display_override` se o gerador incluir opções que você não quiser (a aula comenta preferência por janela simples).
+### 3. Usar na página History
 
-## Passo 4 — Áudios em `src/assets/audios/`
+Em `src/pages/History/index.tsx`:
 
-Coloque um ou mais arquivos **`.mp3`** (ou `.ogg`) nesta pasta. No projeto de referência existem, por exemplo:
+1. Importe o utilitário: `import { formatDate } from '../../utils/formatDate';`
+2. Na célula da coluna **Data**, troque qualquer exibição direta do timestamp por:
 
-- `gravitational_beep.mp3` — som citado na aula (inspiração em ondas gravitacionais / “bip” discreto).
-- Outras opções na mesma pasta para experimentar: `beep.mp3`, `tic_tac_planeta_miller.mp3`, etc.
+```tsx
+<td>{formatDate(task.startDate)}</td>
+```
 
-**Onde baixar sons gratuitos (verifique sempre a licença):**
+Assim a tabela mostra datas no padrão brasileiro com hora, por exemplo `25/03/2025 08:09`.
 
-- **[Freesound](https://freesound.org/)** — comunidade com filtros por licença (muitos CC0 / CC BY).
-- **[Mixkit](https://mixkit.co/free-sound-effects/)** — efeitos sonoros gratuitos para uso em projetos.
-- **[Pixabay](https://pixabay.com/sound-effects/)** — efeitos e músicas com licença própria do site.
-- **[Openverse](https://openverse.org/)** — busca agregada de mídia CC (inclui áudio).
+### Checklist
 
-Para o **“gravitational beep”** da narrativa da aula, muitas fontes citam divulgações da **LIGO/Virgo** (ondas gravitacionais convertidas em áudio) como material de divulgação científica — use cópias oficiais ou equivalentes com licença clara.
+- [ ] `date-fns` instalado e listado em `dependencies`.
+- [ ] `src/utils/formatDate.ts` criado com `format` e padrão `dd/MM/yyyy HH:mm`.
+- [ ] History importa `formatDate` e usa `formatDate(task.startDate)` na coluna Data.
 
-Nesta tarefa **basta** ter o arquivo no disco; **tocar** o som ao completar a task será implementado na próxima instrução (ex.: `Audio` ou `new Audio(url)` no fluxo do `COMPLETE_TASK` / Provider).
+### Referências
 
-## Checklist
-
-- [ ] Arquivos de favicon + `site.webmanifest` copiados para `public/images/` ou `public/images/favicon/`.
-- [ ] `index.html` com `<title>Chronos Pomodoro</title>` (ou nome final do app) e `<link>`s coerentes com os caminhos reais.
-- [ ] `site.webmanifest` com `icons[].src` apontando para arquivos que existem em `public/`.
-- [ ] Pelo menos um `.mp3` em `src/assets/audios/` para o alerta de fim de ciclo.
-- [ ] Teste: abrir o app, ver ícone na aba; no Chrome, ver opção de instalar / atalho (quando os critérios de PWA forem atendidos).
-
-## Referência rápida de pastas no repositório
-
-- `projeto-pomodoro/chronos-pomodoro/public/images/` — assets estáticos servidos em `/images/...`
-- `projeto-pomodoro/chronos-pomodoro/src/assets/audios/` — áudios importados pelo código React/Vite
+- [date-fns — documentação](https://date-fns.org/) (instalação, `format`, tokens de data/hora)

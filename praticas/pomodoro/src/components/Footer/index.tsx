@@ -8,7 +8,7 @@ export function Footer() {
         Veja como funciona o pomodoro
       </RouterLink>
       <RouterLink href='/'>
-        Pomodoro &copy; {new Date().getFullYear()} - Feito por Natanael Tavares
+        Pomodoro &copy; {new Date().getFullYear()} - Feito por Davi Melo Moreira
       </RouterLink>
     </footer>
   );
